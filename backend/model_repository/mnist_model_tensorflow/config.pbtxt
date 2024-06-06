@@ -1,0 +1,17 @@
+name: "mnist_model_tensorflow"
+platform: "tensorflow_savedmodel"
+input [
+  {
+    name: "inputs"
+    data_type: TYPE_FP32
+    format: FORMAT_NHWC
+    dims: [ 28, 28, 1 ]
+  }
+]
+output [
+  {
+    name: "output_0"
+    data_type: TYPE_FP32
+    dims: [ 10 ]
+  }
+]

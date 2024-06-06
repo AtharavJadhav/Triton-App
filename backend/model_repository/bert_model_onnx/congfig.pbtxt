@@ -1,0 +1,19 @@
+name: "bert_model_onnx"
+platform: "onnx"
+backend: "onnx"
+max_batch_size: 0  # Enable dynamic batching
+input [
+  {
+    name: "input.1"
+    data_type: TYPE_INT64
+    dims: [-1, 128]  # Excluding the dynamic batch dimension
+  }
+]
+output [
+  {
+    name: "367"
+    data_type: TYPE_FP32
+    dims: [-1, 128, 30522]  # Excluding the dynamic batch dimension
+  }
+]
+        

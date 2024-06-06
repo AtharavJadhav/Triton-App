@@ -1,0 +1,17 @@
+name: "mnist_model_pytorch"
+platform: "pytorch_libtorch"
+max_batch_size: 0  # Enable dynamic batching
+input [
+  {
+    name: "input.1"
+    data_type: TYPE_FP32
+    dims: [ -1, 1, 28, 28 ]
+  }
+]
+output [
+  {
+    name: "18"
+    data_type: TYPE_FP32
+    dims: [ -1, 10 ]
+  }
+]
