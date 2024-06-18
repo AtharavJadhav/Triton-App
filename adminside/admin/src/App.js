@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 function App() {
   const [selectedModels, setSelectedModels] = useState([]);
   const [metrics, setMetrics] = useState({});
+  const [selectedModelForShift, setSelectedModelForShift] = useState("");
 
   const handleDeploy = async () => {
     try {
@@ -42,6 +43,36 @@ function App() {
     }
   };
 
+  const handleCalculateDataShift = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("model_name", selectedModelForShift);
+
+      const response = await fetch(
+        "http://localhost:5000/calculate_datashift/",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(
+          `HTTP error! status: ${response.status}`,
+          errorData.detail
+        );
+      } else {
+        const data = await response.json();
+        console.log("KL Divergence:", data.kl_divergence);
+        console.log("Data Shift:", data.data_shift);
+        fetchMetrics();
+      }
+    } catch (error) {
+      console.error("Failed to calculate data shift:", error);
+    }
+  };
+
   useEffect(() => {
     const intervalId = setInterval(fetchMetrics, 5000); // Fetch metrics every 5 seconds
     return () => clearInterval(intervalId); // Clean up interval on unmount
@@ -53,7 +84,11 @@ function App() {
         setSelectedModels={setSelectedModels}
         handleDeploy={handleDeploy}
       />
-      <ModelMetrics metrics={metrics} />
+      <ModelMetrics
+        metrics={metrics}
+        setSelectedModelForShift={setSelectedModelForShift}
+        handleCalculateDataShift={handleCalculateDataShift}
+      />
     </div>
   );
 }
@@ -114,7 +149,11 @@ function ModelDeploy({ setSelectedModels, handleDeploy }) {
   );
 }
 
-function ModelMetrics({ metrics }) {
+function ModelMetrics({
+  metrics,
+  setSelectedModelForShift,
+  handleCalculateDataShift,
+}) {
   return (
     <div>
       <h2>Model Metrics</h2>
@@ -126,6 +165,9 @@ function ModelMetrics({ metrics }) {
             <th>Latency (s)</th>
             <th>Throughput (req/s)</th>
             <th>Request Count</th>
+            <th>KL Divergence</th>
+            <th>Data Shift</th>
+            <th>Calculate Data Shift</th>
           </tr>
         </thead>
         <tbody>
@@ -136,6 +178,18 @@ function ModelMetrics({ metrics }) {
               <td>{metrics[modelName].latency.toFixed(4)}</td>
               <td>{metrics[modelName].throughput.toFixed(2)}</td>
               <td>{metrics[modelName].request_count}</td>
+              <td>{metrics[modelName].kl_divergence.toFixed(4)}</td>
+              <td>{metrics[modelName].data_shift ? "Yes" : "No"}</td>
+              <td>
+                <button
+                  onClick={() => {
+                    setSelectedModelForShift(modelName);
+                    handleCalculateDataShift();
+                  }}
+                >
+                  Calculate
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

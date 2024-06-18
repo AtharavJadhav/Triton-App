@@ -1,6 +1,9 @@
 import subprocess
 import os
 import shutil
+import random
+import string
+import json
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Query, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,6 +11,9 @@ from pydantic import BaseModel, Field
 from typing import List, Dict
 import time
 import logging
+import numpy as np
+import cv2
+from scipy.stats import entropy
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +44,11 @@ class InferenceRequest(BaseModel):
     model_name: str
     correct: bool = None
 
+def calculate_kl_divergence(p, q):
+    p = np.asarray(p, dtype=float)
+    q = np.asarray(q, dtype=float)
+    return entropy(p, q)
+
 @app.post("/deploy/")
 async def deploy_models(request_body: DeployModelsRequest):
     models = request_body.models
@@ -55,7 +66,7 @@ async def deploy_models(request_body: DeployModelsRequest):
         '-e', 'TRITON_SERVER_CPU_ONLY=1',
         '-v', f'{os.getcwd()}:/workspace/',
         '-v', f'{os.getcwd()}/model_repository:/models',
-        'nvcr.io/nvidia/tritonserver:24.04-py3',
+        'nvcr.io/nvidia/tritonserver:24.05-py3',
         'tritonserver', '--model-repository=/models',
         '--model-control-mode=explicit'
     ]
@@ -75,6 +86,8 @@ async def deploy_models(request_body: DeployModelsRequest):
                 "request_count": 0,
                 "correct_count": 0,
                 "total_latency": 0,
+                "kl_divergence": 0,
+                "data_shift": False,
             }
         return {"message": "Models deployed successfully"}
     except Exception as e:
@@ -88,11 +101,14 @@ async def inference(model_name: str = Form(...), file: UploadFile = File(...)):
 
     try:
         # Create the directory for storing uploaded files if it doesn't exist
-        input_dir = "inference_inputs"
+        input_dir = f"permanent_storage/{model_name}"
         os.makedirs(input_dir, exist_ok=True)
 
+        # Generate a random filename
+        random_filename = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        file_path = os.path.join(input_dir, random_filename + ".png")
+
         # Save the uploaded file
-        file_path = os.path.join(input_dir, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
@@ -122,9 +138,8 @@ async def inference(model_name: str = Form(...), file: UploadFile = File(...)):
         return {"message": "Inference request processed"}
 
     finally:
-        # Remove the temporary file
-        os.remove(file_path)
-
+        # Perform any additional cleanup actions if necessary
+        pass  # Add any necessary cleanup code here
 
 @app.get("/results/")
 async def get_results():
@@ -156,3 +171,46 @@ async def submit_feedback(request_body: InferenceRequest):
 @app.get("/metrics/")
 async def get_metrics():
     return metrics
+
+@app.post("/calculate_datashift/")
+async def calculate_datashift(model_name: str = Form(...)):
+    if model_name not in metrics:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Path to the training data and inference data
+    training_dir = f"training_images/{model_name}"
+    inference_dir = f"permanent_storage/{model_name}"
+
+    if not os.path.exists(training_dir) or not os.path.exists(inference_dir):
+        raise HTTPException(status_code=404, detail="Training or inference data not found")
+
+    # Function to load images and calculate histogram
+    def load_images_and_calculate_histogram(directory):
+        histograms = []
+        for filename in os.listdir(directory):
+            if filename.endswith(".png"):
+                image_path = os.path.join(directory, filename)
+                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                if image is not None:
+                    hist = cv2.calcHist([image], [0], None, [256], [0, 256]).flatten()
+                    histograms.append(hist)
+        return histograms
+
+    # Calculate histograms for training and inference data
+    training_histograms = load_images_and_calculate_histogram(training_dir)
+    inference_histograms = load_images_and_calculate_histogram(inference_dir)
+
+    # Calculate KL divergence
+    kl_divergences = []
+    for inf_hist in inference_histograms:
+        kl_divs = [calculate_kl_divergence(inf_hist, train_hist) for train_hist in training_histograms]
+        kl_divergences.append(min(kl_divs))
+
+    average_kl_divergence = np.mean(kl_divergences)
+    metrics[model_name]["kl_divergence"] = average_kl_divergence
+
+    # Determine if data shift occurred
+    data_shift_threshold = 0.5  # Example threshold
+    metrics[model_name]["data_shift"] = average_kl_divergence > data_shift_threshold
+
+    return {"kl_divergence": average_kl_divergence, "data_shift": metrics[model_name]["data_shift"]}
