@@ -44,15 +44,20 @@ function App() {
   };
 
   const handleCalculateDataShift = async () => {
-    try {
-      const formData = new FormData();
-      formData.append("model_name", selectedModelForShift);
+    if (!selectedModelForShift) {
+      console.error("No model selected for data shift calculation");
+      return;
+    }
 
+    try {
       const response = await fetch(
-        "http://localhost:5000/calculate_datashift/",
+        "http://localhost:5000/calculate_shift_metrics/",
         {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model_name: selectedModelForShift }),
         }
       );
 
@@ -64,9 +69,17 @@ function App() {
         );
       } else {
         const data = await response.json();
-        console.log("KL Divergence:", data.kl_divergence);
-        console.log("Data Shift:", data.data_shift);
-        fetchMetrics();
+        console.log("Data shift metrics:", data);
+        // Optionally update the state with the new data shift metrics
+        setMetrics((prevMetrics) => ({
+          ...prevMetrics,
+          [data.model_name]: {
+            ...prevMetrics[data.model_name],
+            data_shift: data.data_shift,
+            mean_shift: data.mean_shift,
+            std_shift: data.std_shift,
+          },
+        }));
       }
     } catch (error) {
       console.error("Failed to calculate data shift:", error);
@@ -165,8 +178,9 @@ function ModelMetrics({
             <th>Latency (s)</th>
             <th>Throughput (req/s)</th>
             <th>Request Count</th>
-            <th>KL Divergence</th>
             <th>Data Shift</th>
+            <th>Mean Shift</th>
+            <th>Std Shift</th>
             <th>Calculate Data Shift</th>
           </tr>
         </thead>
@@ -178,8 +192,9 @@ function ModelMetrics({
               <td>{metrics[modelName].latency.toFixed(4)}</td>
               <td>{metrics[modelName].throughput.toFixed(2)}</td>
               <td>{metrics[modelName].request_count}</td>
-              <td>{metrics[modelName].kl_divergence.toFixed(4)}</td>
-              <td>{metrics[modelName].data_shift ? "Yes" : "No"}</td>
+              <td>{metrics[modelName].data_shift.toFixed(4)}</td>
+              <td>{metrics[modelName].mean_shift.toFixed(4)}</td>
+              <td>{metrics[modelName].std_shift.toFixed(4)}</td>
               <td>
                 <button
                   onClick={() => {

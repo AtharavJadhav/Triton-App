@@ -12,8 +12,8 @@ from typing import List, Dict
 import time
 import logging
 import numpy as np
+import pandas as pd
 import cv2
-from scipy.stats import entropy
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -44,10 +44,8 @@ class InferenceRequest(BaseModel):
     model_name: str
     correct: bool = None
 
-def calculate_kl_divergence(p, q):
-    p = np.asarray(p, dtype=float)
-    q = np.asarray(q, dtype=float)
-    return entropy(p, q)
+class MetricsRequest(BaseModel):
+    model_name: str
 
 @app.post("/deploy/")
 async def deploy_models(request_body: DeployModelsRequest):
@@ -86,8 +84,9 @@ async def deploy_models(request_body: DeployModelsRequest):
                 "request_count": 0,
                 "correct_count": 0,
                 "total_latency": 0,
-                "kl_divergence": 0,
-                "data_shift": False,
+                "data_shift": 0,
+                "mean_shift": 0,
+                "std_shift": 0
             }
         return {"message": "Models deployed successfully"}
     except Exception as e:
@@ -172,45 +171,55 @@ async def submit_feedback(request_body: InferenceRequest):
 async def get_metrics():
     return metrics
 
-@app.post("/calculate_datashift/")
-async def calculate_datashift(model_name: str = Form(...)):
-    if model_name not in metrics:
-        raise HTTPException(status_code=404, detail="Model not found")
+# Endpoint to calculate data shift metrics
+@app.post("/calculate_shift_metrics/")
+async def get_data_shift_metrics(request_body: MetricsRequest):
+    model_name = request_body.model_name
+    try:
+        # Load training data
+        training_dir = os.path.join("training_images", model_name)
+        if not os.path.exists(training_dir):
+            raise HTTPException(status_code=404, detail=f"Training data not found for model: {model_name}")
 
-    # Path to the training data and inference data
-    training_dir = f"training_images/{model_name}"
-    inference_dir = f"permanent_storage/{model_name}"
+        # Load newly uploaded data
+        storage_dir = os.path.join("permanent_storage", model_name)
+        if not os.path.exists(storage_dir):
+            raise HTTPException(status_code=404, detail=f"No current data found for model: {model_name}")
 
-    if not os.path.exists(training_dir) or not os.path.exists(inference_dir):
-        raise HTTPException(status_code=404, detail="Training or inference data not found")
+        # Assuming both training_dir and storage_dir contain image files
+   
+        # Step 1: Get all image file paths
+        training_images = [os.path.join(training_dir, f) for f in os.listdir(training_dir) if f.endswith('.jpg') or f.endswith('.png')]
+        storage_images = [os.path.join(storage_dir, f) for f in os.listdir(storage_dir) if f.endswith('.jpg') or f.endswith('.png')]
+    
+        # Step 2: Calculate statistics on images
+        def calculate_stats(images):
+            means = []
+            stds = []
+            for img_path in images:
+                img = cv2.imread(img_path)
+                # Calculate mean and standard deviation for each channel
+                mean, std = cv2.meanStdDev(img)
+                means.append(mean.flatten())
+                stds.append(std.flatten())
+            return np.mean(means, axis=0), np.mean(stds, axis=0)
+    
+        # Step 3: Compute statistics for both sets of images
+        training_mean, training_std = calculate_stats(training_images)
+        storage_mean, storage_std = calculate_stats(storage_images)
+    
+        # Step 4: Calculate overall data shift
+        overall_mean_shift = np.linalg.norm(training_mean - storage_mean)
+        overall_std_shift = np.linalg.norm(training_std - storage_std)
+    
+        overall_data_shift = np.sqrt(overall_mean_shift**2 + overall_std_shift**2) / 100
+    
+        metrics[model_name]["data_shift"] = overall_data_shift
+        metrics[model_name]["mean_shift"] = overall_mean_shift
+        metrics[model_name]["std_shift"] = overall_std_shift
 
-    # Function to load images and calculate histogram
-    def load_images_and_calculate_histogram(directory):
-        histograms = []
-        for filename in os.listdir(directory):
-            if filename.endswith(".png"):
-                image_path = os.path.join(directory, filename)
-                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-                if image is not None:
-                    hist = cv2.calcHist([image], [0], None, [256], [0, 256]).flatten()
-                    histograms.append(hist)
-        return histograms
+        return {"data_shift": overall_data_shift, "mean_shift": overall_mean_shift, "std_shift": overall_std_shift, "model_name": model_name, "status": "success", "message": "Data shift metrics calculated successfully"}
 
-    # Calculate histograms for training and inference data
-    training_histograms = load_images_and_calculate_histogram(training_dir)
-    inference_histograms = load_images_and_calculate_histogram(inference_dir)
-
-    # Calculate KL divergence
-    kl_divergences = []
-    for inf_hist in inference_histograms:
-        kl_divs = [calculate_kl_divergence(inf_hist, train_hist) for train_hist in training_histograms]
-        kl_divergences.append(min(kl_divs))
-
-    average_kl_divergence = np.mean(kl_divergences)
-    metrics[model_name]["kl_divergence"] = average_kl_divergence
-
-    # Determine if data shift occurred
-    data_shift_threshold = 0.5  # Example threshold
-    metrics[model_name]["data_shift"] = average_kl_divergence > data_shift_threshold
-
-    return {"kl_divergence": average_kl_divergence, "data_shift": metrics[model_name]["data_shift"]}
+    except Exception as e:
+        logger.error(f"Error calculating data shift metrics: {str(e)}")
+        return JSONResponse(status_code=500, content={"detail": "Failed to calculate data shift metrics"})
