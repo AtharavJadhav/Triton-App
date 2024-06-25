@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/482949183677503447/0d375335358146c5a67a18b933428f5c/artifacts
+end_time: 1719310211337
+entry_point_name: ''
+experiment_id: '482949183677503447'
+lifecycle_stage: active
+run_id: 0d375335358146c5a67a18b933428f5c
+run_name: shivering-cub-977
+run_uuid: 0d375335358146c5a67a18b933428f5c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719309865044
+status: 3
+tags: []
+user_id: atharav

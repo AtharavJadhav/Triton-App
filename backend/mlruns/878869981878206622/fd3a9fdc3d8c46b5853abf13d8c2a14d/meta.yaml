@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/878869981878206622/fd3a9fdc3d8c46b5853abf13d8c2a14d/artifacts
+end_time: 1719300866007
+entry_point_name: ''
+experiment_id: '878869981878206622'
+lifecycle_stage: active
+run_id: fd3a9fdc3d8c46b5853abf13d8c2a14d
+run_name: wise-ant-394
+run_uuid: fd3a9fdc3d8c46b5853abf13d8c2a14d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719300596311
+status: 3
+tags: []
+user_id: atharav

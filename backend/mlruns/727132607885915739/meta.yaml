@@ -1,0 +1,6 @@
+artifact_location: file:///home/atharav/react/model/Triton-App/backend/mlruns/727132607885915739
+creation_time: 1719309455600
+experiment_id: '727132607885915739'
+last_update_time: 1719309455600
+lifecycle_stage: active
+name: MNIST_OPENVINO_Experiment

@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/727132607885915739/3481b04b47d54a5da083b1c1a4c35557/artifacts
+end_time: 1719309806310
+entry_point_name: ''
+experiment_id: '727132607885915739'
+lifecycle_stage: active
+run_id: 3481b04b47d54a5da083b1c1a4c35557
+run_name: exultant-bat-961
+run_uuid: 3481b04b47d54a5da083b1c1a4c35557
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719309456235
+status: 3
+tags: []
+user_id: atharav

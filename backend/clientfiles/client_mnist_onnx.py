@@ -3,13 +3,31 @@ import tritonclient.http as httpclient
 from PIL import Image
 import sys
 import os
+import re
 
 # Define the server URL and model name
 url = "localhost:8000"
 model_name = "mnist_model_onnx"
+config_file_path = f"model_repository/{model_name}/config.pbtxt"  # Adjust this path
 
 # Create a Triton HTTP client
 client = httpclient.InferenceServerClient(url=url)
+
+def parse_config(config_file_path):
+    input_name, output_name = None, None
+    with open(config_file_path, 'r') as f:
+        for line in f:
+            if "input" in line:
+                for next_line in f:
+                    if "name:" in next_line:
+                        input_name = re.findall(r'"([^"]*)"', next_line)[0]
+                        break
+            if "output" in line:
+                for next_line in f:
+                    if "name:" in next_line:
+                        output_name = re.findall(r'"([^"]*)"', next_line)[0]
+                        break
+    return input_name, output_name
 
 # Prepare a sample image (MNIST digit)
 def prepare_image(image_path):
@@ -30,21 +48,25 @@ if __name__ == "__main__":
         print(f"Error: File {image_path} does not exist.")
         sys.exit(1)
 
+    # Parse the config.pbtxt file to get input and output names
+    input_name, output_name = parse_config(config_file_path)
+    print(f"Using input name: {input_name}, output name: {output_name}")
+
     # Prepare the image
     image = prepare_image(image_path)
 
     # Create the input object
-    inputs = httpclient.InferInput("input.1", image.shape, "FP32")
+    inputs = httpclient.InferInput(input_name, image.shape, "FP32")
     inputs.set_data_from_numpy(image)
 
     # Create the output object
-    outputs = httpclient.InferRequestedOutput("18")
+    outputs = httpclient.InferRequestedOutput(output_name)
 
     # Send the request to the server
     response = client.infer(model_name, inputs=[inputs], outputs=[outputs])
 
     # Get the results
-    result = response.as_numpy("18")
+    result = response.as_numpy(output_name)
     predicted_digit = np.argmax(result)
 
     # Write the result to results.txt

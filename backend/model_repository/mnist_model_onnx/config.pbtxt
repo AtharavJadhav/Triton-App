@@ -4,16 +4,16 @@ platform: "onnxruntime_onnx"
 max_batch_size: 0  # Enable dynamic batching
 input [
   {
-    name: "input.1"
+    name: "x.1"
     data_type: TYPE_FP32
-    dims: [ -1, 1, 28, 28 ]
+    dims: [-1, 1, 28, 28]  # Excluding the dynamic batch dimension
   }
 ]
 output [
   {
     name: "18"
     data_type: TYPE_FP32
-    dims: [ -1, 10 ]
+    dims: [-1, 10]  # Excluding the dynamic batch dimension
   }
 ]
         

@@ -1,0 +1,6 @@
+artifact_location: file:///home/atharav/react/model/Triton-App/backend/mlruns/878869981878206622
+creation_time: 1719300595861
+experiment_id: '878869981878206622'
+last_update_time: 1719300595861
+lifecycle_stage: active
+name: MNIST_ONNX_Experiment

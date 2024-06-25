@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/878869981878206622/f920e4cef9e846ac9f1289a3ac0cd758/artifacts
+end_time: 1719301768675
+entry_point_name: ''
+experiment_id: '878869981878206622'
+lifecycle_stage: active
+run_id: f920e4cef9e846ac9f1289a3ac0cd758
+run_name: rumbling-lark-350
+run_uuid: f920e4cef9e846ac9f1289a3ac0cd758
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719301419967
+status: 3
+tags: []
+user_id: atharav

@@ -14,6 +14,7 @@ import logging
 import numpy as np
 import pandas as pd
 import cv2
+import asyncio
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -38,13 +39,16 @@ triton_server_process = None
 metrics = {}
 
 class DeployModelsRequest(BaseModel):
-    models: List[str] = Field(..., example=["mnist_model_onnx", "mnist_model_openvino"])
+    models: List[str] = Field(..., example=["mnist_model_onnx"])
 
 class InferenceRequest(BaseModel):
     model_name: str
     correct: bool = None
 
 class MetricsRequest(BaseModel):
+    model_name: str
+
+class Retrain(BaseModel):
     model_name: str
 
 @app.post("/deploy/")
@@ -54,7 +58,7 @@ async def deploy_models(request_body: DeployModelsRequest):
     if triton_server_process:
         triton_server_process.kill()
 
-    required_models = {"mnist_model_onnx", "mnist_model_openvino", "mnist_model_pytorch", "bert_model_onnx"}
+    required_models = {"mnist_model_onnx", "mnist_model_openvino", "mnist_model_pytorch", "mnist_model_tensorrt"}
     if not all(model in required_models for model in models):
         return JSONResponse(status_code=422, content={"detail": "Invalid model names. Use the exact model names."})
 
@@ -64,6 +68,7 @@ async def deploy_models(request_body: DeployModelsRequest):
         '-e', 'TRITON_SERVER_CPU_ONLY=1',
         '-v', f'{os.getcwd()}:/workspace/',
         '-v', f'{os.getcwd()}/model_repository:/models',
+        '--name', 'tritonsserver',
         'nvcr.io/nvidia/tritonserver:24.05-py3',
         'tritonserver', '--model-repository=/models',
         '--model-control-mode=explicit'
@@ -116,7 +121,7 @@ async def inference(model_name: str = Form(...), file: UploadFile = File(...)):
             "mnist_model_onnx": "client_mnist_onnx.py",
             "mnist_model_openvino": "client_mnist_openvino.py",
             "mnist_model_pytorch": "client_mnist_pytorch.py",
-            "bert_model_onnx": "client_bert_onnx.py",
+            "mnist_model_tensorrt": "client_mnist_tensorrt.py"
         }
         script_name = model_to_script.get(model_name)
         if not script_name:
@@ -223,3 +228,50 @@ async def get_data_shift_metrics(request_body: MetricsRequest):
     except Exception as e:
         logger.error(f"Error calculating data shift metrics: {str(e)}")
         return JSONResponse(status_code=500, content={"detail": "Failed to calculate data shift metrics"})
+    
+@app.post("/retrain/")
+async def retrain_model(request_body: Retrain, background_tasks: BackgroundTasks):
+    model_name = request_body.model_name
+
+    # Validate model name
+    if model_name not in metrics:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    task = background_tasks.add_task(retrain_model_task, model_name)
+
+    return {"message": f"Retraining of model {model_name} has completed"}
+
+def retrain_model_task(model_name: str):
+    logger.info(f"Retraining started for model {model_name}")
+    try:
+        # Simulate retraining process
+        retraining_script = {
+            "mnist_model_onnx": "retrain_mnist_onnx.py",
+            "mnist_model_openvino": "retrain_mnist_openvino.py",
+            "mnist_model_pytorch": "retrain_mnist_pytorch.py",
+            "mnist_model_tensorrt": "retrain_mnist_tensorrt.py"
+        }
+        script_name = retraining_script.get(model_name)
+        if not script_name:
+            logger.error(f"No retraining script found for model {model_name}")
+            return
+        
+        script_path = f"retrainfiles/{script_name}"
+        subprocess.run(["python3", script_path])
+
+        # Reset data shift metrics after retraining
+        metrics[model_name]["data_shift"] = 0
+        metrics[model_name]["mean_shift"] = 0
+        metrics[model_name]["std_shift"] = 0
+
+        # Stop the Triton server
+        global triton_server_process
+        if triton_server_process:
+            subprocess.run(["docker", "stop", "tritonsserver"])
+            subprocess.run(["docker", "rm", "tritonsserver"])
+            logger.info("Triton server stopped")
+        
+        logger.info(f"Retraining completed for model {model_name}")
+
+    except Exception as e:
+        logger.error(f"Error during retraining of model {model_name}: {str(e)}")
