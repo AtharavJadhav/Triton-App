@@ -4,6 +4,8 @@ function App() {
   const [selectedModels, setSelectedModels] = useState([]);
   const [metrics, setMetrics] = useState({});
   const [selectedModelForShift, setSelectedModelForShift] = useState("");
+  const [result, setResult] = useState("No result yet");
+  const [loading, setLoading] = useState(false);
 
   const handleDeploy = async () => {
     try {
@@ -91,6 +93,35 @@ function App() {
     return () => clearInterval(intervalId); // Clean up interval on unmount
   }, []);
 
+  const handleRetrain = async () => {
+    if (!selectedModelForShift) {
+      console.error("No model selected for data shift calculation");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:5000/retrain/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model_name: selectedModelForShift }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      } else {
+        console.log("Model retrained successfully");
+        setResult(
+          "Model retrained successfully, Please Redeploy all the models."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to retrain model:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div>
       <ModelDeploy
@@ -101,6 +132,9 @@ function App() {
         metrics={metrics}
         setSelectedModelForShift={setSelectedModelForShift}
         handleCalculateDataShift={handleCalculateDataShift}
+        handleRetrain={handleRetrain}
+        result={result}
+        loading={loading}
       />
     </div>
   );
@@ -166,6 +200,9 @@ function ModelMetrics({
   metrics,
   setSelectedModelForShift,
   handleCalculateDataShift,
+  handleRetrain,
+  result,
+  loading,
 }) {
   return (
     <div>
@@ -182,6 +219,8 @@ function ModelMetrics({
             <th>Mean Shift</th>
             <th>Std Shift</th>
             <th>Calculate Data Shift</th>
+            <th>Retrain Option</th>
+            <th>Result</th>
           </tr>
         </thead>
         <tbody>
@@ -205,6 +244,21 @@ function ModelMetrics({
                   Calculate
                 </button>
               </td>
+              <td>
+                {metrics[modelName].data_shift > 0.1 ? (
+                  <button
+                    onClick={() => {
+                      setSelectedModelForShift(modelName);
+                      handleRetrain();
+                    }}
+                  >
+                    Retrain
+                  </button>
+                ) : (
+                  <p>No retrain needed</p>
+                )}
+              </td>
+              <td>{loading ? <p>Loading...</p> : <p>{result}</p>}</td>
             </tr>
           ))}
         </tbody>

@@ -14,7 +14,6 @@ import logging
 import numpy as np
 import pandas as pd
 import cv2
-import asyncio
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -229,6 +228,8 @@ async def get_data_shift_metrics(request_body: MetricsRequest):
         logger.error(f"Error calculating data shift metrics: {str(e)}")
         return JSONResponse(status_code=500, content={"detail": "Failed to calculate data shift metrics"})
     
+#define a class with type backgroundtasks so that we can verify "task " is completed or not
+    
 @app.post("/retrain/")
 async def retrain_model(request_body: Retrain, background_tasks: BackgroundTasks):
     model_name = request_body.model_name
@@ -237,7 +238,7 @@ async def retrain_model(request_body: Retrain, background_tasks: BackgroundTasks
     if model_name not in metrics:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    task = background_tasks.add_task(retrain_model_task, model_name)
+    retrain_model_task(model_name)
 
     return {"message": f"Retraining of model {model_name} has completed"}
 

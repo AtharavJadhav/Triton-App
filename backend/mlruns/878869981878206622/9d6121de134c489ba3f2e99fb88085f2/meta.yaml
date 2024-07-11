@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/878869981878206622/9d6121de134c489ba3f2e99fb88085f2/artifacts
+end_time: 1719312309971
+entry_point_name: ''
+experiment_id: '878869981878206622'
+lifecycle_stage: active
+run_id: 9d6121de134c489ba3f2e99fb88085f2
+run_name: rumbling-pig-433
+run_uuid: 9d6121de134c489ba3f2e99fb88085f2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719311893778
+status: 3
+tags: []
+user_id: atharav

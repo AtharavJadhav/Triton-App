@@ -1,0 +1,15 @@
+artifact_uri: file:///home/atharav/react/model/Triton-App/backend/mlruns/878869981878206622/7b9e27c935f44b9eb9ce26dbed340395/artifacts
+end_time: 1719410988053
+entry_point_name: ''
+experiment_id: '878869981878206622'
+lifecycle_stage: active
+run_id: 7b9e27c935f44b9eb9ce26dbed340395
+run_name: powerful-ape-374
+run_uuid: 7b9e27c935f44b9eb9ce26dbed340395
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1719410596011
+status: 3
+tags: []
+user_id: atharav
